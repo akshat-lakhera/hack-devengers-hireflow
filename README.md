@@ -1,6 +1,11 @@
-﻿# TalentDossier — AI-Powered Autonomous Recruiter
+# TalentDossier — AI-Powered Autonomous Recruiter
 > **HackDevengers Open Innovation Hackathon 2026**  
 > *Built in 24 hours. Solves a real hiring problem. Runs autonomously.*
+
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Vercel-black?logo=vercel)](https://hack-devengers-hackathon-lyart.vercel.app)
+[![GitHub](https://img.shields.io/badge/GitHub-Repository-181717?logo=github)](https://github.com/akshat-lakhera/hack-devengers-hireflow)
+
+> 🌐 **Live Demo**: [https://hack-devengers-hackathon-lyart.vercel.app](https://hack-devengers-hackathon-lyart.vercel.app)
 
 ---
 
