@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { CandidateCaseFile, RoleSetup } from '../types';
-import { extractTextFromPDF } from '../services/pdfParser';
+import { extractTextFromPDF, StructuredResumeData } from '../services/pdfParser';
 import { CaseEvaluator } from '../services/caseEvaluator';
 import { 
   X, 
@@ -10,7 +10,12 @@ import {
   Plus, 
   Trash2, 
   CheckCircle2, 
-  AlertTriangle 
+  AlertCircle,
+  Sparkles,
+  User,
+  Mail,
+  Phone,
+  Briefcase
 } from 'lucide-react';
 
 interface UploadCandidateModalProps {
@@ -19,18 +24,25 @@ interface UploadCandidateModalProps {
   onCandidatesUploaded: (newCandidates: CandidateCaseFile[]) => void;
 }
 
+interface UploadedFileItem {
+  file: File;
+  name: string;
+  parsedData: StructuredResumeData;
+}
+
 export const UploadCandidateModal: React.FC<UploadCandidateModalProps> = ({
   role,
   onClose,
   onCandidatesUploaded
 }) => {
   const [activeTab, setActiveTab] = useState<'pdf' | 'text'>('pdf');
-  const [files, setFiles] = useState<{ file: File; name: string; text: string }[]>([]);
+  const [files, setFiles] = useState<UploadedFileItem[]>([]);
   const [resumeText, setResumeText] = useState('');
   const [candidateName, setCandidateName] = useState('');
   const [candidateRole, setCandidateRole] = useState('');
   const [portfolioUrl, setPortfolioUrl] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement> | React.DragEvent) => {
     let droppedFiles: File[] = [];
@@ -44,16 +56,15 @@ export const UploadCandidateModal: React.FC<UploadCandidateModalProps> = ({
     if (droppedFiles.length === 0) return;
 
     setIsProcessing(true);
+    setErrorMsg(null);
+
     for (const file of droppedFiles) {
       try {
         const parsed = await extractTextFromPDF(file);
-        setFiles(prev => [...prev, { file, name: parsed.name, text: parsed.rawText }]);
-      } catch (err) {
-        setFiles(prev => [...prev, { 
-          file, 
-          name: file.name.replace(/\.[^/.]+$/, ''), 
-          text: `Candidate resume document ${file.name}` 
-        }]);
+        setFiles(prev => [...prev, { file, name: parsed.name, parsedData: parsed }]);
+      } catch (err: any) {
+        console.error('Extraction error:', err);
+        setErrorMsg(`Failed to parse ${file.name}: ${err.message || 'Unknown error'}`);
       }
     }
     setIsProcessing(false);
@@ -66,21 +77,21 @@ export const UploadCandidateModal: React.FC<UploadCandidateModalProps> = ({
   const handleSubmit = () => {
     const generated: CandidateCaseFile[] = [];
 
-    // Process uploaded PDF files dynamically
+    // 1. Process uploaded PDF files using their parsed StructuredResumeData
     if (activeTab === 'pdf' && files.length > 0) {
       files.forEach((f) => {
         const evaluated = CaseEvaluator.evaluate(
-          f.text,
+          f.parsedData,
           role,
           f.name,
-          portfolioUrl || undefined,
+          portfolioUrl || f.parsedData.portfolioUrl || undefined,
           'Ingested via PDF Document Upload'
         );
         generated.push(evaluated);
       });
     }
 
-    // Process pasted text dynamically
+    // 2. Process pasted raw text dynamically
     if (activeTab === 'text' && resumeText.trim()) {
       const evaluated = CaseEvaluator.evaluate(
         resumeText,
@@ -102,155 +113,226 @@ export const UploadCandidateModal: React.FC<UploadCandidateModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/85 backdrop-blur-sm overflow-y-auto font-sans text-xs">
-      <div className="case-card rounded-2xl w-full max-w-xl max-h-[90vh] flex flex-col shadow-2xl border border-case-borderLight animate-in fade-in zoom-in-95 duration-200 overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-150">
+      <div className="bg-white rounded-xl shadow-xl border border-slate-200 w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
         
         {/* Header */}
-        <div className="p-4 bg-case-bgAlt border-b border-case-border flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <UploadCloud className="w-4 h-4 text-accent-blue" />
-            <h3 className="font-bold text-sm text-white">Upload Candidate Resumes</h3>
+        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+          <div>
+            <h3 className="text-base font-semibold text-slate-900">Add Candidate to Pipeline</h3>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Evaluating against active role: <span className="font-semibold text-slate-700">{role.title}</span>
+            </p>
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-lg bg-case-surface hover:bg-case-surfaceLight border border-case-border flex items-center justify-center text-slate-400 hover:text-white transition-colors"
+            className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Tab selector */}
-        <div className="flex border-b border-case-border bg-case-surface">
+        {/* Tab Selector */}
+        <div className="flex border-b border-slate-200 bg-slate-50 px-6 text-xs font-semibold">
           <button
+            type="button"
             onClick={() => setActiveTab('pdf')}
-            className={`flex-1 py-2.5 text-center font-mono text-xs font-semibold border-b-2 transition-colors ${
+            className={`py-3 border-b-2 transition-colors mr-6 ${
               activeTab === 'pdf'
-                ? 'border-accent-blue text-accent-blue bg-case-surfaceElevated'
-                : 'border-transparent text-slate-400 hover:text-white'
+                ? 'border-indigo-600 text-indigo-600'
+                : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
-            PDF / Document Upload
+            Upload Resume PDF
           </button>
           <button
+            type="button"
             onClick={() => setActiveTab('text')}
-            className={`flex-1 py-2.5 text-center font-mono text-xs font-semibold border-b-2 transition-colors ${
+            className={`py-3 border-b-2 transition-colors ${
               activeTab === 'text'
-                ? 'border-accent-blue text-accent-blue bg-case-surfaceElevated'
-                : 'border-transparent text-slate-400 hover:text-white'
+                ? 'border-indigo-600 text-indigo-600'
+                : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
             Paste Resume Text
           </button>
         </div>
 
-        {/* Content */}
-        <div className="p-5 space-y-4 overflow-y-auto flex-1 bg-case-bg">
+        {/* Body */}
+        <div className="p-6 overflow-y-auto space-y-4 flex-1">
+          
+          {errorMsg && (
+            <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg text-xs text-rose-700 flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{errorMsg}</span>
+            </div>
+          )}
+
           {activeTab === 'pdf' ? (
             <div className="space-y-4">
-              <div className="case-card rounded-xl p-6 border-2 border-dashed border-case-border hover:border-accent-blue/50 text-center transition-colors relative cursor-pointer">
+              {/* Dropzone */}
+              <label 
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={handleFileUpload}
+                className="border-2 border-dashed border-slate-300 hover:border-indigo-500 bg-slate-50/60 hover:bg-indigo-50/30 rounded-xl p-8 flex flex-col items-center justify-center text-center cursor-pointer transition-colors"
+              >
                 <input
                   type="file"
                   multiple
-                  accept=".pdf,.docx,application/pdf"
+                  accept=".pdf"
                   onChange={handleFileUpload}
-                  className="absolute inset-0 opacity-0 cursor-pointer"
+                  className="hidden"
                 />
-                <UploadCloud className="w-8 h-8 text-accent-blue mx-auto mb-2" />
-                <div className="text-white font-semibold">Drop PDF resumes here or browse</div>
-                <p className="text-slate-400 text-[11px] mt-1">
-                  Supports PDF and text documents. Automatically evaluated against active JD.
+                <div className="w-12 h-12 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-indigo-600 shadow-sm mb-3">
+                  <UploadCloud className="w-6 h-6" />
+                </div>
+                <div className="text-sm font-semibold text-slate-900">
+                  Click to select or drag and drop candidate resumes (.PDF)
+                </div>
+                <p className="text-xs text-slate-500 mt-1">
+                  Extracts text, skills, and projects client-side with zero external data sharing
                 </p>
-              </div>
+              </label>
 
+              {isProcessing && (
+                <div className="p-4 bg-indigo-50 border border-indigo-100 rounded-xl flex items-center gap-3 text-xs text-indigo-900">
+                  <div className="w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin shrink-0" />
+                  <span>Parsing and reconstructing resume coordinates...</span>
+                </div>
+              )}
+
+              {/* Uploaded Files Live Preview */}
               {files.length > 0 && (
-                <div className="space-y-2">
-                  <div className="font-mono text-[11px] text-slate-400">Ready to Ingest & Evaluate ({files.length}):</div>
-                  <div className="space-y-1.5 max-h-36 overflow-y-auto">
-                    {files.map((f, i) => (
-                      <div key={i} className="flex items-center justify-between p-2 rounded-lg bg-case-surface border border-case-border">
-                        <div className="flex items-center gap-2">
-                          <FileText className="w-3.5 h-3.5 text-accent-blue" />
-                          <span className="font-semibold text-white">{f.name}</span>
-                        </div>
-                        <button onClick={() => handleRemoveFile(i)} className="text-slate-500 hover:text-accent-red">
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    ))}
+                <div className="space-y-2.5">
+                  <div className="text-xs font-semibold text-slate-700 uppercase tracking-wide">
+                    Ready to Ingest ({files.length})
                   </div>
+                  {files.map((item, idx) => (
+                    <div
+                      key={idx}
+                      className="p-3.5 bg-white rounded-xl border border-slate-200 shadow-sm flex items-start justify-between gap-3 text-xs"
+                    >
+                      <div className="space-y-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-slate-900 text-sm">{item.name}</span>
+                          <span className="text-[10px] font-medium bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded border border-emerald-200">
+                            Parsed Successfully
+                          </span>
+                        </div>
+                        <div className="text-slate-600 truncate">
+                          {item.parsedData.headline || item.file.name}
+                        </div>
+                        <div className="flex items-center gap-3 text-[11px] text-slate-500 pt-1">
+                          <span>{item.parsedData.skills.length} Skills detected</span>
+                          <span>•</span>
+                          <span>{item.parsedData.projects.length} Projects</span>
+                          {item.parsedData.email && (
+                            <>
+                              <span>•</span>
+                              <span className="truncate">{item.parsedData.email}</span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveFile(idx)}
+                        className="text-slate-400 hover:text-rose-600 p-1 rounded hover:bg-slate-100 transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
           ) : (
             <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-300 font-semibold mb-1">Candidate Name</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Candidate Name (Optional)
+                  </label>
                   <input
                     type="text"
+                    placeholder="e.g. Alex Rivera"
                     value={candidateName}
-                    onChange={e => setCandidateName(e.target.value)}
-                    placeholder="e.g. Jordan Miller"
-                    className="w-full bg-case-surface border border-case-border rounded-lg p-2 text-white text-xs focus:outline-none"
+                    onChange={(e) => setCandidateName(e.target.value)}
+                    className="w-full text-xs bg-white border border-slate-200 rounded-lg px-3 py-2 text-slate-900 focus:ring-2 focus:ring-indigo-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-300 font-semibold mb-1">Current Role (Optional)</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Current Title (Optional)
+                  </label>
                   <input
                     type="text"
+                    placeholder="e.g. Senior Software Engineer"
                     value={candidateRole}
-                    onChange={e => setCandidateRole(e.target.value)}
-                    placeholder="e.g. Staff Backend Engineer"
-                    className="w-full bg-case-surface border border-case-border rounded-lg p-2 text-white text-xs focus:outline-none"
+                    onChange={(e) => setCandidateRole(e.target.value)}
+                    className="w-full text-xs bg-white border border-slate-200 rounded-lg px-3 py-2 text-slate-900 focus:ring-2 focus:ring-indigo-500"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-slate-300 font-semibold mb-1">Resume Content</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Resume Content / Plain Text
+                </label>
                 <textarea
-                  rows={6}
+                  rows={8}
+                  placeholder="Paste plain text resume, work history, projects, or credentials..."
                   value={resumeText}
-                  onChange={e => setResumeText(e.target.value)}
-                  placeholder="Paste candidate work experience, achievements, and technical stack..."
-                  className="w-full bg-case-surface border border-case-border rounded-lg p-2.5 text-white text-xs leading-relaxed focus:outline-none resize-none font-mono"
+                  onChange={(e) => setResumeText(e.target.value)}
+                  className="w-full text-xs bg-white border border-slate-200 rounded-lg p-3 text-slate-900 focus:ring-2 focus:ring-indigo-500 font-mono"
                 />
               </div>
             </div>
           )}
 
-          {/* Portfolio link */}
+          {/* Optional Portfolio or GitHub URL */}
           <div>
-            <label className="block text-slate-300 font-semibold mb-1 flex items-center gap-1.5">
-              <LinkIcon className="w-3.5 h-3.5 text-slate-400" />
-              <span>Portfolio or GitHub Link (Optional)</span>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
+              External Portfolio / GitHub Repo (Optional)
             </label>
-            <input
-              type="url"
-              value={portfolioUrl}
-              onChange={e => setPortfolioUrl(e.target.value)}
-              placeholder="https://github.com/candidate-repo"
-              className="w-full bg-case-surface border border-case-border rounded-lg p-2 text-white text-xs focus:outline-none"
-            />
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="https://github.com/... or https://portfolio.dev"
+                value={portfolioUrl}
+                onChange={(e) => setPortfolioUrl(e.target.value)}
+                className="w-full text-xs bg-white border border-slate-200 rounded-lg pl-8 pr-3 py-2 text-slate-900 focus:ring-2 focus:ring-indigo-500"
+              />
+              <LinkIcon className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
+            </div>
           </div>
+
         </div>
 
         {/* Footer */}
-        <div className="p-4 bg-case-bgAlt border-t border-case-border flex items-center justify-between">
-          <button
-            onClick={onClose}
-            className="px-3 py-1.5 rounded-lg bg-case-surface hover:bg-case-surfaceLight text-slate-300 border border-case-border"
-          >
-            Cancel
-          </button>
+        <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
+          <div className="text-xs text-slate-500">
+            {activeTab === 'pdf' ? `${files.length} candidate(s) ready` : 'Ready to evaluate'}
+          </div>
 
-          <button
-            onClick={handleSubmit}
-            disabled={activeTab === 'pdf' ? files.length === 0 : !resumeText.trim()}
-            className="px-5 py-2 rounded-xl bg-accent-blue hover:bg-accent-blueHover disabled:opacity-40 text-black font-semibold text-xs shadow transition-colors flex items-center gap-1.5"
-          >
-            <span>Evaluate & Ingest</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-3.5 py-1.5 text-xs font-medium text-slate-600 hover:text-slate-900"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleSubmit}
+              disabled={activeTab === 'pdf' ? files.length === 0 : !resumeText.trim()}
+              className="px-4 py-1.5 text-xs font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:pointer-events-none rounded-lg shadow-sm transition-colors"
+            >
+              Ingest & Evaluate Candidate
+            </button>
+          </div>
         </div>
 
       </div>

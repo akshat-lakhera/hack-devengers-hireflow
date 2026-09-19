@@ -1,53 +1,65 @@
 import React, { useState } from 'react';
-import { CandidateCaseFile, TeamNote } from '../types';
+import { CandidateCaseFile, ReviewMode } from '../types';
 import { 
-  AlertTriangle, 
-  MessageSquare, 
-  FileQuestion, 
-  StickyNote, 
-  ArrowRight, 
   CheckCircle2, 
-  ShieldAlert,
-  Send,
-  PlusCircle,
-  ExternalLink
+  XCircle, 
+  HelpCircle, 
+  Copy, 
+  Check, 
+  ChevronDown, 
+  ChevronUp, 
+  Send, 
+  Sparkles, 
+  AlertTriangle,
+  MessageSquare,
+  Volume2
 } from 'lucide-react';
+import { AudioService } from '../services/audioService';
 
 interface InsightRailProps {
   candidate: CandidateCaseFile | null;
-  onOpenCaseFile: (candidate: CandidateCaseFile) => void;
-  onOpenInterviewKit: (candidate: CandidateCaseFile) => void;
-  onAddNote: (candidateId: string, noteText: string) => void;
+  reviewMode: ReviewMode;
   onUpdateStatus: (candidateId: string, status: CandidateCaseFile['reviewStatus']) => void;
+  onAddNote: (candidateId: string, noteText: string) => void;
+  onOpenInterviewKit: (c: CandidateCaseFile) => void;
 }
 
 export const InsightRail: React.FC<InsightRailProps> = ({
   candidate,
-  onOpenCaseFile,
-  onOpenInterviewKit,
+  onUpdateStatus,
   onAddNote,
-  onUpdateStatus
+  onOpenInterviewKit
 }) => {
+  const [copiedQuestionId, setCopiedQuestionId] = useState<string | null>(null);
+  const [expandedQuestionId, setExpandedQuestionId] = useState<string | null>(null);
   const [newNote, setNewNote] = useState('');
+  const [playingTTS, setPlayingTTS] = useState<string | null>(null);
 
   if (!candidate) {
     return (
-      <div className="case-card rounded-xl p-6 border border-case-border text-center space-y-3 font-sans text-xs">
-        <div className="w-10 h-10 rounded-lg bg-case-bg border border-case-border flex items-center justify-center mx-auto text-slate-500">
-          <FileQuestion className="w-5 h-5" />
-        </div>
-        <div className="text-white font-semibold">No Candidate Selected</div>
-        <p className="text-slate-400 text-[11px]">
-          Select any case file in the center board to inspect verified evidence, risk flags, and interview questions.
-        </p>
+      <div className="bg-white rounded-xl border border-slate-200 p-6 text-center text-slate-500 text-xs">
+        Select a candidate to view decision actions and interview probes.
       </div>
     );
   }
 
-  // Filter missing evidence
-  const missingEvidence = candidate.evidenceMap.filter(
-    ev => ev.status === 'Missing' || ev.status === 'Needs validation'
-  );
+  const handleCopyQuestion = (id: string, text: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(text);
+    setCopiedQuestionId(id);
+    setTimeout(() => setCopiedQuestionId(null), 1800);
+  };
+
+  const handleToggleTTS = (id: string, text: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (playingTTS === id) {
+      AudioService.cancelSpeech();
+      setPlayingTTS(null);
+    } else {
+      setPlayingTTS(id);
+      AudioService.speak(text, () => setPlayingTTS(null));
+    }
+  };
 
   const handleNoteSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,204 +70,199 @@ export const InsightRail: React.FC<InsightRailProps> = ({
   };
 
   return (
-    <div className="flex flex-col gap-4 font-sans text-xs">
+    <div className="space-y-4">
       
-      {/* Header Summary */}
-      <div className="case-card rounded-xl p-4 border border-case-border space-y-2">
-        <div className="flex items-center justify-between text-slate-400 font-mono text-[11px]">
-          <span>INVESTIGATION RAIL</span>
-          <span className="font-mono text-accent-blue">{candidate.name}</span>
-        </div>
-        
-        <div className="flex items-center justify-between pt-1">
-          <div>
-            <div className="text-white font-bold text-sm">{candidate.reviewStatus}</div>
-            <div className="text-[11px] text-slate-400">Confidence: High Evidence Grounding</div>
-          </div>
+      {/* 1. Quick Decision Action Card */}
+      <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+        <h4 className="text-xs font-semibold text-slate-900 uppercase tracking-wide mb-3">
+          Recruiter Decision
+        </h4>
+
+        <div className="grid grid-cols-3 gap-2">
           <button
-            onClick={() => onOpenCaseFile(candidate)}
-            className="text-[11px] text-accent-blue hover:underline font-mono flex items-center gap-1"
+            onClick={() => onUpdateStatus(candidate.id, 'Interview Ready')}
+            className={`py-2 px-2.5 rounded-lg text-xs font-semibold flex flex-col items-center gap-1 transition-all ${
+              candidate.reviewStatus === 'Interview Ready'
+                ? 'bg-emerald-600 text-white shadow-sm ring-2 ring-emerald-600/30'
+                : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200'
+            }`}
           >
-            <span>Full File</span>
-            <ArrowRight className="w-3 h-3" />
+            <CheckCircle2 className="w-4 h-4" />
+            <span>Approve</span>
+          </button>
+
+          <button
+            onClick={() => onUpdateStatus(candidate.id, 'Needs Review')}
+            className={`py-2 px-2.5 rounded-lg text-xs font-semibold flex flex-col items-center gap-1 transition-all ${
+              candidate.reviewStatus === 'Needs Review'
+                ? 'bg-amber-600 text-white shadow-sm ring-2 ring-amber-600/30'
+                : 'bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200'
+            }`}
+          >
+            <HelpCircle className="w-4 h-4" />
+            <span>Request Info</span>
+          </button>
+
+          <button
+            onClick={() => onUpdateStatus(candidate.id, 'Rejected')}
+            className={`py-2 px-2.5 rounded-lg text-xs font-semibold flex flex-col items-center gap-1 transition-all ${
+              candidate.reviewStatus === 'Rejected'
+                ? 'bg-slate-700 text-white shadow-sm'
+                : 'bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200'
+            }`}
+          >
+            <XCircle className="w-4 h-4" />
+            <span>Reject</span>
           </button>
         </div>
-      </div>
 
-      {/* 1. Missing Evidence / Validation Needed */}
-      <div className="case-card rounded-xl p-4 border border-case-border space-y-3">
-        <div className="flex items-center justify-between text-slate-400 font-mono text-[11px]">
-          <div className="flex items-center gap-1.5 text-accent-amber">
-            <AlertTriangle className="w-3.5 h-3.5" />
-            <span>MISSING EVIDENCE ({missingEvidence.length})</span>
-          </div>
+        <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
+          <span>Current Status:</span>
+          <span className="font-semibold text-slate-800">{candidate.reviewStatus}</span>
         </div>
-
-        {missingEvidence.length === 0 ? (
-          <div className="p-2.5 rounded-lg bg-case-bg border border-case-border text-[11px] text-accent-green flex items-center gap-2">
-            <CheckCircle2 className="w-3.5 h-3.5" />
-            <span>All core JD requirements verified with evidence!</span>
-          </div>
-        ) : (
-          <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-            {missingEvidence.map((ev, idx) => (
-              <div key={idx} className="p-2.5 rounded-lg bg-case-bg border border-case-border space-y-1">
-                <div className="flex items-center justify-between font-semibold text-white text-[11px]">
-                  <span>{ev.requirement}</span>
-                  <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${
-                    ev.status === 'Missing' ? 'bg-accent-red/15 text-accent-red' : 'bg-accent-amber/15 text-accent-amber'
-                  }`}>
-                    {ev.status}
-                  </span>
-                </div>
-                <div className="text-[11px] text-slate-400 leading-snug">
-                  {ev.snippet}
-                </div>
-                <div className="text-[10px] font-mono text-slate-500 pt-0.5">
-                  Source: {ev.evidenceSource}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
       </div>
 
-      {/* 2. Suggested Interview Questions */}
-      <div className="case-card rounded-xl p-4 border border-case-border space-y-3">
-        <div className="flex items-center justify-between text-slate-400 font-mono text-[11px]">
-          <div className="flex items-center gap-1.5 text-accent-blue">
-            <MessageSquare className="w-3.5 h-3.5" />
-            <span>SUGGESTED QUESTIONS ({candidate.interviewQuestions.length})</span>
+      {/* 2. Suggested Interview Probes Accordion */}
+      <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-1.5">
+            <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+            <h4 className="text-xs font-semibold text-slate-900 uppercase tracking-wide">
+              Interview Probes ({candidate.interviewQuestions.length})
+            </h4>
           </div>
           <button
             onClick={() => onOpenInterviewKit(candidate)}
-            className="text-[10px] text-accent-blue hover:underline font-mono"
+            className="text-[11px] font-medium text-indigo-600 hover:text-indigo-700"
           >
-            Launch Kit
+            Open Full Kit
           </button>
         </div>
 
-        <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
-          {candidate.interviewQuestions.slice(0, 2).map((q, idx) => (
-            <div key={idx} className="p-2.5 rounded-lg bg-case-bg border border-case-border space-y-1">
-              <div className="flex items-center justify-between text-[10px] font-mono">
-                <span className="text-slate-400">{q.targetRequirement}</span>
-                <span className="px-1.5 py-0.5 rounded bg-case-surfaceElevated border border-case-border text-accent-blue font-semibold">
-                  {q.severityTag}
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-200 italic leading-snug">
-                "{q.questionText}"
-              </p>
-              {q.followUpProbe && (
-                <div className="text-[10px] text-slate-400 pt-1 border-t border-case-border/60">
-                  <span className="font-mono text-slate-500">Probe: </span>
-                  {q.followUpProbe}
+        <div className="space-y-2">
+          {candidate.interviewQuestions.map((q) => {
+            const isExpanded = expandedQuestionId === q.id;
+            return (
+              <div
+                key={q.id}
+                className="rounded-lg border border-slate-200 bg-slate-50/50 overflow-hidden text-xs transition-colors hover:border-slate-300"
+              >
+                {/* Accordion Header */}
+                <div
+                  onClick={() => setExpandedQuestionId(isExpanded ? null : q.id)}
+                  className="p-3 cursor-pointer flex items-start justify-between gap-2"
+                >
+                  <div className="font-medium text-slate-800 leading-snug">
+                    {q.questionText}
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0 text-slate-400">
+                    <button
+                      onClick={(e) => handleCopyQuestion(q.id, q.questionText, e)}
+                      title="Copy Question"
+                      className="p-1 hover:text-slate-700 rounded hover:bg-slate-200/60"
+                    >
+                      {copiedQuestionId === q.id ? (
+                        <Check className="w-3.5 h-3.5 text-emerald-600" />
+                      ) : (
+                        <Copy className="w-3.5 h-3.5" />
+                      )}
+                    </button>
+                    {isExpanded ? (
+                      <ChevronUp className="w-3.5 h-3.5" />
+                    ) : (
+                      <ChevronDown className="w-3.5 h-3.5" />
+                    )}
+                  </div>
                 </div>
-              )}
-            </div>
-          ))}
+
+                {/* Accordion Body */}
+                {isExpanded && (
+                  <div className="px-3 pb-3 pt-1 border-t border-slate-200/60 bg-white space-y-2">
+                    <div>
+                      <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                        Target Requirement
+                      </div>
+                      <div className="text-xs text-slate-700 mt-0.5">
+                        {q.targetRequirement}
+                      </div>
+                    </div>
+
+                    <div className="p-2 bg-amber-50/60 border border-amber-200/60 rounded text-[11px] text-amber-900">
+                      <div className="font-semibold text-amber-800 flex items-center gap-1 mb-0.5">
+                        <HelpCircle className="w-3 h-3" />
+                        <span>What to Look For:</span>
+                      </div>
+                      {q.followUpProbe}
+                    </div>
+
+                    <div className="flex items-center justify-between pt-1">
+                      <button
+                        onClick={(e) => handleToggleTTS(q.id, q.questionText, e)}
+                        className="text-[11px] text-slate-500 hover:text-indigo-600 flex items-center gap-1"
+                      >
+                        <Volume2 className="w-3 h-3" />
+                        <span>{playingTTS === q.id ? 'Stop audio' : 'Listen'}</span>
+                      </button>
+
+                      <button
+                        onClick={() => onOpenInterviewKit(candidate)}
+                        className="text-[11px] text-indigo-600 hover:underline font-medium"
+                      >
+                        Score in Kit →
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
 
-      {/* 3. Risk Flags */}
-      <div className="case-card rounded-xl p-4 border border-case-border space-y-3">
-        <div className="flex items-center gap-1.5 text-slate-400 font-mono text-[11px]">
-          <ShieldAlert className="w-3.5 h-3.5 text-accent-red" />
-          <span>RISK FLAGS ({candidate.riskFlags.length})</span>
-        </div>
+      {/* 3. Quick Team Note Box */}
+      <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+        <h4 className="text-xs font-semibold text-slate-900 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+          <MessageSquare className="w-3.5 h-3.5 text-slate-500" />
+          <span>Internal Note</span>
+        </h4>
 
-        {candidate.riskFlags.length === 0 ? (
-          <div className="text-[11px] text-slate-400 italic">No critical risks flagged.</div>
-        ) : (
-          <div className="space-y-2">
-            {candidate.riskFlags.map((rf, idx) => (
-              <div key={idx} className="p-2 rounded-lg bg-case-bg border border-case-border space-y-0.5">
-                <div className="flex items-center justify-between text-[11px]">
-                  <span className="font-bold text-white">{rf.label}</span>
-                  <span className={`text-[10px] font-mono uppercase px-1 rounded ${
-                    rf.severity === 'critical' ? 'bg-accent-red/20 text-accent-red' : 'bg-accent-amber/20 text-accent-amber'
-                  }`}>
-                    {rf.severity}
-                  </span>
+        <form onSubmit={handleNoteSubmit} className="space-y-2">
+          <textarea
+            rows={2}
+            placeholder="Add a recruiter screening note..."
+            value={newNote}
+            onChange={(e) => setNewNote(e.target.value)}
+            className="w-full text-xs bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white resize-none"
+          />
+          <div className="flex justify-end">
+            <button
+              type="submit"
+              disabled={!newNote.trim()}
+              className="px-3 py-1.5 text-xs font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 disabled:pointer-events-none rounded-lg shadow-sm flex items-center gap-1 transition-colors"
+            >
+              <Send className="w-3 h-3" />
+              <span>Post Note</span>
+            </button>
+          </div>
+        </form>
+
+        {/* Recent Notes Preview */}
+        {candidate.teamNotes.length > 0 && (
+          <div className="mt-3 pt-3 border-t border-slate-100 space-y-2">
+            <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+              Recent Notes
+            </div>
+            {candidate.teamNotes.slice(0, 2).map((n) => (
+              <div key={n.id} className="text-xs bg-slate-50 p-2 rounded border border-slate-200/60">
+                <div className="flex items-center justify-between text-[10px] text-slate-500 mb-0.5">
+                  <span className="font-semibold text-slate-700">{n.author}</span>
+                  <span>{n.timestamp}</span>
                 </div>
-                <div className="text-[11px] text-slate-400 leading-snug">
-                  {rf.details}
-                </div>
+                <div className="text-slate-800">{n.text}</div>
               </div>
             ))}
           </div>
         )}
-      </div>
-
-      {/* 4. Notes Summary & Quick Add */}
-      <div className="case-card rounded-xl p-4 border border-case-border space-y-3">
-        <div className="flex items-center gap-1.5 text-slate-400 font-mono text-[11px]">
-          <StickyNote className="w-3.5 h-3.5 text-accent-blue" />
-          <span>NOTES SUMMARY ({candidate.teamNotes.length})</span>
-        </div>
-
-        <div className="space-y-2 max-h-36 overflow-y-auto pr-1">
-          {candidate.teamNotes.length === 0 ? (
-            <div className="text-[11px] text-slate-500 italic">No notes logged yet.</div>
-          ) : (
-            candidate.teamNotes.map((note, idx) => (
-              <div key={idx} className="p-2 rounded bg-case-bg border border-case-border space-y-0.5 text-[11px]">
-                <div className="flex items-center justify-between text-[10px] font-mono text-slate-400">
-                  <span className="text-slate-300 font-semibold">{note.author}</span>
-                  <span>{note.timestamp}</span>
-                </div>
-                <div className="text-slate-300">{note.text}</div>
-              </div>
-            ))
-          )}
-        </div>
-
-        <form onSubmit={handleNoteSubmit} className="flex gap-1.5 pt-1">
-          <input
-            type="text"
-            value={newNote}
-            onChange={e => setNewNote(e.target.value)}
-            placeholder="Add brief observation..."
-            className="flex-1 bg-case-bg border border-case-border rounded-lg px-2.5 py-1.5 text-white text-xs focus:outline-none"
-          />
-          <button
-            type="submit"
-            disabled={!newNote.trim()}
-            className="p-1.5 bg-accent-blue hover:bg-accent-blueHover disabled:opacity-40 text-black rounded-lg transition-colors"
-          >
-            <Send className="w-3.5 h-3.5" />
-          </button>
-        </form>
-      </div>
-
-      {/* 5. Primary Next Action Button */}
-      <div className="case-card rounded-xl p-4 border border-case-border space-y-2">
-        <div className="text-[10px] font-mono uppercase text-slate-400 tracking-wider">
-          Decision Action
-        </div>
-        <button
-          onClick={() => onOpenInterviewKit(candidate)}
-          className="w-full py-2.5 px-4 rounded-xl bg-accent-blue hover:bg-accent-blueHover text-black font-semibold text-xs transition-all shadow flex items-center justify-center gap-2"
-        >
-          <span>Generate Interview Kit</span>
-          <ArrowRight className="w-3.5 h-3.5" />
-        </button>
-
-        <div className="grid grid-cols-2 gap-2 pt-1">
-          <button
-            onClick={() => onUpdateStatus(candidate.id, 'Interview Ready')}
-            className="py-1.5 px-2 rounded-lg bg-case-bg hover:bg-case-surface border border-case-border text-accent-green text-[11px] font-medium transition-colors"
-          >
-            Move Forward
-          </button>
-          <button
-            onClick={() => onUpdateStatus(candidate.id, 'Needs Validation')}
-            className="py-1.5 px-2 rounded-lg bg-case-bg hover:bg-case-surface border border-case-border text-accent-amber text-[11px] font-medium transition-colors"
-          >
-            Mark Unclear
-          </button>
-        </div>
       </div>
 
     </div>

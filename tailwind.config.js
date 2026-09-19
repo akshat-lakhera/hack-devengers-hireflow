@@ -4,33 +4,55 @@ export default {
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
   ],
-  darkMode: 'class',
   theme: {
     extend: {
       colors: {
-        case: {
-          bg: '#0B1020',
-          bgAlt: '#0E1324',
-          surface: '#121A2E',
-          surfaceLight: '#162038',
-          surfaceElevated: '#1A2644',
-          border: 'rgba(255, 255, 255, 0.08)',
-          borderSubtle: '#1D2844',
-          borderLight: '#263456',
+        // Human-Centric B2B SaaS Palette (Ashby / Lever / Gem Benchmark)
+        brand: {
+          50: '#EEF2FF',
+          100: '#E0E7FF',
+          200: '#C7D2FE',
+          500: '#6366F1',
+          600: '#4F46E5', // Primary Action Accent
+          700: '#4338CA',
+          800: '#3730A3',
+          900: '#312E81',
         },
-        accent: {
-          blue: '#4DA3FF',
-          blueHover: '#3B8FE6',
-          violet: '#8B7CFF', // focus states only
-          green: '#55D38A',  // verified / strong fit
-          amber: '#F4B860',  // warning / needs validation
-          red: '#E26D6D',    // risk / missing
+        surface: {
+          canvas: '#F8FAFC',  // Clean Soft Slate Background
+          card: '#FFFFFF',    // Solid White Card Surface
+          subtle: '#F1F5F9',  // Subtle Hover / Nested Surface
+          border: '#E2E8F0',  // Crisp 1px Border
+          borderHover: '#CBD5E1',
+        },
+        textPrimary: '#0F172A',   // High-Contrast Dark Slate
+        textSecondary: '#475569', // Slate-600 Body
+        textMuted: '#94A3B8',     // Slate-400 Captions
+        
+        // Accessible Semantic Badges (AAA contrast)
+        status: {
+          verifiedBg: '#DCFCE7',
+          verifiedText: '#15803D',
+          verifiedBorder: '#BBF7D0',
+
+          validationBg: '#FEF3C7',
+          validationText: '#B45309',
+          validationBorder: '#FDE68A',
+
+          riskBg: '#FFE4E6',
+          riskText: '#9F1239',
+          riskBorder: '#FECDD3',
         }
       },
       fontFamily: {
         sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
         mono: ['JetBrains Mono', 'Fira Code', 'monospace'],
       },
+      boxShadow: {
+        'card': '0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05)',
+        'card-hover': '0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05)',
+        'dropdown': '0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.04)',
+      }
     },
   },
   plugins: [],
